@@ -141,7 +141,7 @@ const App: React.FC = () => {
           2. Output ONLY the text in ${recordLang.name}.
           3. DO NOT translate to English or any other language unless the user is already speaking that language.
           4. DO NOT provide any conversational response.
-          5. CRITICAL: If the language is Chinese (Simplified or Traditional), YOU MUST OUTPUT IN SIMPLIFIED CHINESE (简体中文).`
+          5. CRITICAL: If the target language is "Simplified Chinese" or "Chinese", YOU MUST OUTPUT IN SIMPLIFIED CHINESE CHARACTERS (简体中文). NEVER use Traditional Chinese characters. Even if the speaker has a Taiwan or Cantonese accent, normalize the written output to Simplified Chinese.`
         }
       });
 
