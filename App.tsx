@@ -10,7 +10,7 @@ const App: React.FC = () => {
   const [outputLang, setOutputLang] = useState<Language>(LANGUAGES[1]);
   const [transcript, setTranscript] = useState<string>("");
   const [translation, setTranslation] = useState<string>("");
-  const [isRecording, setIsRecording] = useState<boolean>(false);
+  const [activeSpeaker, setActiveSpeaker] = useState<'host' | 'guest' | null>(null);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -30,10 +30,10 @@ const App: React.FC = () => {
 
   // Auto-scroll textarea as text arrives
   useEffect(() => {
-    if (textareaRef.current && isRecording && document.activeElement !== textareaRef.current) {
+    if (textareaRef.current && activeSpeaker && document.activeElement !== textareaRef.current) {
       textareaRef.current.scrollTop = textareaRef.current.scrollHeight;
     }
-  }, [transcript, isRecording]);
+  }, [transcript, activeSpeaker]);
 
   const handleSwap = () => {
     const temp = inputLang;
@@ -57,12 +57,15 @@ const App: React.FC = () => {
     }
   };
 
-  const startRecording = async () => {
+  const startRecording = async (speaker: 'host' | 'guest') => {
+    // Reset based on who is starting. 
+    // If Host starts: Clear everything as usual.
+    // If Guest starts: Clear everything to prepare for their turn.
     setTranscript("");
     transcriptRef.current = "";
     setTranslation("");
     setErrorMessage(null);
-    setIsRecording(true);
+    setActiveSpeaker(speaker);
 
     try {
       const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY || '' });
@@ -71,6 +74,11 @@ const App: React.FC = () => {
 
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
       audioContextRef.current = audioContext;
+
+      // Determine languages based on speaker
+      // Host: Speaking InputLang -> Transcribe in InputLang
+      // Guest: Speaking OutputLang -> Transcribe in OutputLang
+      const recordLang = speaker === 'host' ? inputLang : outputLang;
 
       const sessionPromise = ai.live.connect({
         model: 'gemini-2.5-flash-native-audio-preview-12-2025',
@@ -103,7 +111,15 @@ const App: React.FC = () => {
             if (msg.serverContent?.inputTranscription) {
               const newPart = msg.serverContent.inputTranscription.text || "";
               transcriptRef.current += newPart;
-              setTranscript(transcriptRef.current);
+
+              // Visual Feedback:
+              // If Host speaking: Update 'transcript' (Bottom Card)
+              // If Guest speaking: Update 'translation' (Top Card) as a live subtitle/preview
+              if (speaker === 'host') {
+                setTranscript(transcriptRef.current);
+              } else {
+                setTranslation(transcriptRef.current);
+              }
             }
           },
           onerror: (e: any) => {
@@ -118,11 +134,11 @@ const App: React.FC = () => {
             voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Puck' } },
           },
           systemInstruction: `You are a professional concierge transcriptionist.
-          CONTEXT: A person is speaking in ${inputLang.name}.
-          TASK: Provide a high-fidelity word-for-word transcription of their speech in ${inputLang.name}.
+          CONTEXT: A person is speaking in ${recordLang.name}.
+          TASK: Provide a high-fidelity word-for-word transcription of their speech in ${recordLang.name}.
           STRICT RULES:
           1. Transcribe ONLY what you hear.
-          2. Output ONLY the text in ${inputLang.name}.
+          2. Output ONLY the text in ${recordLang.name}.
           3. DO NOT translate to English or any other language unless the user is already speaking that language.
           4. DO NOT provide any conversational response.
           5. CRITICAL: If the language is Chinese (Simplified or Traditional), YOU MUST OUTPUT IN SIMPLIFIED CHINESE (简体中文).`
@@ -133,12 +149,14 @@ const App: React.FC = () => {
     } catch (err) {
       console.error("Recording error", err);
       setErrorMessage("Could not start recording. Please check microphone permissions.");
-      setIsRecording(false);
+      setActiveSpeaker(null);
     }
   };
 
   const stopRecording = async () => {
-    setIsRecording(false);
+    // Capture the current speaker before resetting
+    const currentSpeaker = activeSpeaker;
+    setActiveSpeaker(null);
     setIsProcessing(true);
 
     if (processorRef.current) processorRef.current.disconnect();
@@ -152,11 +170,46 @@ const App: React.FC = () => {
       try {
         const textToTranslate = transcriptRef.current.trim();
         if (textToTranslate) {
-          const result = await translateText(textToTranslate, inputLang.name, outputLang.name);
-          setTranslation(result);
-          // Auto-play removed per request
+          // Dual Logic:
+          // If HOST spoke: textToTranslate is in InputLang. Translate to OutputLang.
+          // If GUEST spoke: textToTranslate is in OutputLang. Translate to InputLang.
+
+          if (currentSpeaker === 'host') {
+            const result = await translateText(textToTranslate, inputLang.name, outputLang.name);
+            setTranslation(result);
+            // Optionally auto-play result for Guest to hear? 
+            // Requirement says "function similar", usually implies playing result.
+            // But existing code had auto-play removed per request. 
+          } else if (currentSpeaker === 'guest') {
+            // Guest spoke in OutputLang. We need to show this on their side (already done via visual feedback in translation state?)
+            // Wait, in startRecording 'onmessage', Guest speech went to 'setTranslation'.
+            // So 'translation' currently holds the Guest's transcript.
+            // We need to translate that to InputLang and put it in 'transcript' (Bottom Card) for the Host to see.
+
+            // Swap variable logic for the call:
+            const result = await translateText(textToTranslate, outputLang.name, inputLang.name);
+
+            // Update UI:
+            // Guest's speech (Transcript) -> Visualization kept active? 
+            // Actually, usually we show: 
+            // Top: Original Guest Text
+            // Bottom: Translated Host Text
+
+            // Let's force proper state assignment:
+            // Top (Guest Area): Should show what they said. (currently in 'translation' state)
+            // Bottom (Host Area): Should show translation. (currently 'transcript' state)
+
+            setTranslation(textToTranslate); // Ensure Top shows original Guest text
+            setTranscript(result); // Bottom shows Translated English
+
+            // Auto-play for Host?
+            // Users usually want to hear the translation in their language.
+            // handlePlayAudio(result, inputLang.name); 
+          }
+
         } else {
-          setTranslation("No voice input was detected.");
+          if (currentSpeaker === 'host') setTranslation("No voice input was detected.");
+          if (currentSpeaker === 'guest') setTranscript("No voice input was detected.");
         }
       } catch (e) {
         setErrorMessage("Processing failed. Please try again.");
@@ -293,16 +346,16 @@ const App: React.FC = () => {
                     setTranscript(val);
                     transcriptRef.current = val;
                   }}
-                  placeholder={isRecording ? `Listening...` : `Speak or type...`}
+                  placeholder={activeSpeaker ? `Listening...` : `Speak or type...`}
                   className="w-full h-32 sm:h-40 bg-slate-50/50 dark:bg-slate-800/30 rounded-3xl p-5 border-2 border-dashed border-slate-100 dark:border-slate-800 transition-all text-slate-700 dark:text-slate-200 text-lg sm:text-xl font-medium leading-relaxed resize-none focus:border-accent focus:ring-0 focus:bg-white dark:focus:bg-slate-800 shadow-inner"
                 />
-                {!transcript && !isRecording && (
+                {!transcript && !activeSpeaker && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none opacity-20">
                     <span className="material-icons-outlined text-4xl mb-2">keyboard_voice</span>
                     <p className="text-[9px] font-black uppercase tracking-widest text-center">Tap Mic</p>
                   </div>
                 )}
-                {isRecording && (
+                {activeSpeaker === 'host' && (
                   <div className="absolute top-3 right-4 flex items-center space-x-1.5 bg-red-500/10 text-red-500 px-2.5 py-1 rounded-full border border-red-500/20 shadow-sm backdrop-blur-sm">
                     <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-ping"></div>
                     <span className="text-[9px] font-black uppercase tracking-widest">Live</span>
@@ -312,12 +365,12 @@ const App: React.FC = () => {
 
               <div className="flex flex-col items-center">
                 <button
-                  onClick={isRecording ? stopRecording : startRecording}
-                  disabled={isProcessing}
-                  className={`w-24 h-24 rounded-full flex items-center justify-center transition-all active:scale-90 shadow-2xl ${isRecording ? 'bg-red-500 scale-105 shadow-red-500/40' : 'bg-accent hover:bg-[#8B7143] shadow-accent/40'} ${isProcessing ? 'opacity-50 grayscale cursor-not-allowed' : 'hover:scale-105'}`}
+                  onClick={activeSpeaker ? stopRecording : () => startRecording('host')}
+                  disabled={isProcessing || (activeSpeaker === 'guest')}
+                  className={`w-24 h-24 rounded-full flex items-center justify-center transition-all active:scale-90 shadow-2xl ${activeSpeaker === 'host' ? 'bg-red-500 scale-105 shadow-red-500/40' : 'bg-accent hover:bg-[#8B7143] shadow-accent/40'} ${isProcessing || activeSpeaker === 'guest' ? 'opacity-50 grayscale cursor-not-allowed' : 'hover:scale-105'}`}
                 >
                   <span className="material-icons-outlined text-4xl text-white">
-                    {isRecording ? 'stop' : 'mic'}
+                    {activeSpeaker === 'host' ? 'stop' : 'mic'}
                   </span>
                 </button>
               </div>
@@ -330,7 +383,20 @@ const App: React.FC = () => {
             <div className="flex-1 rotate-180 bg-white dark:bg-slate-900 p-10 flex flex-col items-center justify-center text-center border-b border-slate-100 dark:border-slate-800 relative group">
               <span className="absolute top-8 left-1/2 -translate-x-1/2 text-[10px] font-black uppercase tracking-[0.4em] text-accent/50 group-hover:text-accent transition-colors">{outputLang.name}</span>
               <div className="flex-grow flex items-center justify-center px-6 overflow-y-auto w-full relative">
-                <div className="text-4xl font-black text-primary dark:text-white leading-snug" dangerouslySetInnerHTML={{ __html: translation || (isRecording ? "Listening..." : "Waiting...") }} />
+                <div className="text-4xl font-black text-primary dark:text-white leading-snug" dangerouslySetInnerHTML={{ __html: translation || (activeSpeaker === 'guest' ? "Listening..." : "Waiting...") }} />
+
+                {/* Guest Recording Button (Top - Rotated for them) */}
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30">
+                  <button
+                    onClick={activeSpeaker ? stopRecording : () => startRecording('guest')}
+                    disabled={isProcessing || (activeSpeaker === 'host')}
+                    className={`w-16 h-16 rounded-full flex items-center justify-center shadow-lg transition-all active:scale-95 ${activeSpeaker === 'guest' ? 'bg-red-500 scale-110 shadow-red-500/40' : 'bg-white/10 dark:bg-white/20 text-primary dark:text-white backdrop-blur-md'} ${isProcessing || activeSpeaker === 'host' ? 'opacity-30 cursor-not-allowed' : ''}`}
+                  >
+                    <span className="material-icons-outlined text-3xl">
+                      {activeSpeaker === 'guest' ? 'stop' : 'mic'}
+                    </span>
+                  </button>
+                </div>
                 {translation && (
                   <button
                     onClick={() => handlePlayAudio(translation, outputLang.name)}
@@ -357,10 +423,10 @@ const App: React.FC = () => {
                   const val = e.target.value;
                   setTranscript(val);
                   transcriptRef.current = val;
-                }} placeholder={isRecording ? "Listening..." : "Tap Mic"} className="w-full bg-transparent border-none text-4xl font-black text-primary dark:text-white leading-snug text-center focus:ring-0 resize-none p-0 h-full" />
+                }} placeholder={activeSpeaker === 'host' ? "Listening..." : "Tap Mic"} className="w-full bg-transparent border-none text-4xl font-black text-primary dark:text-white leading-snug text-center focus:ring-0 resize-none p-0 h-full" />
               </div>
-              <button onClick={isRecording ? stopRecording : startRecording} disabled={isProcessing} className={`w-24 h-24 rounded-full flex items-center justify-center shadow-2xl transition-all active:scale-90 ${isRecording ? 'bg-red-500 scale-110' : 'bg-primary hover:scale-105'}`}>
-                <span className="material-icons-outlined text-4xl text-white">{isRecording ? 'stop' : 'mic'}</span>
+              <button onClick={activeSpeaker ? stopRecording : () => startRecording('host')} disabled={isProcessing || (activeSpeaker === 'guest')} className={`w-24 h-24 rounded-full flex items-center justify-center shadow-2xl transition-all active:scale-90 ${activeSpeaker === 'host' ? 'bg-red-500 scale-110' : 'bg-primary hover:scale-105'} ${isProcessing || activeSpeaker === 'guest' ? 'opacity-50 grayscale cursor-not-allowed' : ''}`}>
+                <span className="material-icons-outlined text-4xl text-white">{activeSpeaker === 'host' ? 'stop' : 'mic'}</span>
               </button>
             </div>
           </div>

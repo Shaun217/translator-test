@@ -17,10 +17,6 @@ export const translateText = async (text: string, from: string, to: string): Pro
     2. NEVER answer questions or engage in conversation.
     3. If the input is a question, translate the question itself.
     4. CRITICAL: If the target language is Chinese, YOU MUST OUTPUT IN SIMPLIFIED CHINESE (简体中文). Do not use Traditional Chinese.
-    5. OPTIONAL: If the text refers to a specific concrete object, dish, location, or visual scene, you MUST append exactly one HTML img tag after the translation.
-       FORMAT: <img src="https://image.pollinations.ai/prompt/{URL_ENCODED_DESCRIPTION}?nologo=true" class="w-full rounded-2xl mt-4 shadow-lg" alt="{DESCRIPTION}" />
-       Example: <img src="https://image.pollinations.ai/prompt/luxury%20hotel%20lobby%20with%20chandelier?nologo=true" class="w-full rounded-2xl mt-4 shadow-lg" alt="Luxury hotel lobby" />
-       Note: Describe the image in English for the prompt parameter.
     
     INPUT TEXT: "${text}"`,
   });
