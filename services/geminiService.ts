@@ -1,6 +1,6 @@
 import { GoogleGenAI, Modality } from "@google/genai";
 
-const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+const getAI = () => new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY || '' });
 
 /**
  * Strictly translates text from one language to another.
@@ -34,7 +34,7 @@ export const generateSpeech = async (text: string, language: string): Promise<st
   const ai = getAI();
   // We strip HTML tags from the text before sending to TTS to avoid reading out <img> tags
   const cleanText = text.replace(/<[^>]*>?/gm, '');
-  
+
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash-preview-tts",
     contents: [{ parts: [{ text: `Read this text clearly in ${language}: ${cleanText}` }] }],
@@ -42,7 +42,7 @@ export const generateSpeech = async (text: string, language: string): Promise<st
       responseModalities: [Modality.AUDIO],
       speechConfig: {
         voiceConfig: {
-          prebuiltVoiceConfig: { voiceName: 'Kore' }, 
+          prebuiltVoiceConfig: { voiceName: 'Kore' },
         },
       },
     },
