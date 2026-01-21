@@ -192,7 +192,7 @@ const App: React.FC = () => {
   );
 
   return (
-    <div className="bg-background-light dark:bg-background-dark text-slate-800 dark:text-slate-100 min-h-screen flex flex-col font-sans transition-all selection:bg-accent/30">
+    <div className="bg-background-light dark:bg-background-dark text-text-light dark:text-text-dark min-h-screen flex flex-col font-sans text-lg transition-all selection:bg-primary/30">
 
       {showInputPicker && <LanguageModal active={inputLang} onSelect={setInputLang} onClose={() => setShowInputPicker(false)} />}
       {showOutputPicker && <LanguageModal active={outputLang} onSelect={setOutputLang} onClose={() => setShowOutputPicker(false)} />}
@@ -201,12 +201,10 @@ const App: React.FC = () => {
         <header className="bg-primary p-6 pt-10 text-center rounded-b-[3rem] shadow-2xl transition-all relative overflow-hidden flex-shrink-0">
           <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]"></div>
           <div className="relative z-10">
-            <div className="flex justify-center mb-2">
-              <div className="w-8 h-8 border border-accent rounded-full flex items-center justify-center bg-white/5 backdrop-blur-sm">
-                <span className="text-accent font-bold text-sm">H</span>
-              </div>
+            <div className="flex justify-center mb-6">
+              <img src="/hilton-logo.png" alt="Hilton Logo" className="h-20 w-auto" />
             </div>
-            <h1 className="text-white text-[10px] font-bold tracking-[0.4em] uppercase opacity-80">Hilton Regional AI</h1>
+            <h1 className="text-white font-display text-3xl sm:text-5xl font-bold tracking-widest uppercase opacity-100 mt-4">Hilton AI Translator</h1>
           </div>
         </header>
       )}
