@@ -192,27 +192,28 @@ const App: React.FC = () => {
   );
 
   return (
-    <div className="bg-background-light dark:bg-background-dark text-text-light dark:text-text-dark min-h-screen flex flex-col font-sans text-lg transition-all selection:bg-primary/30">
+    <div className="bg-background-light dark:bg-background-dark text-text-light dark:text-text-dark min-h-screen flex flex-col font-sans text-sm sm:text-lg transition-all selection:bg-primary/30">
 
       {showInputPicker && <LanguageModal active={inputLang} onSelect={setInputLang} onClose={() => setShowInputPicker(false)} />}
       {showOutputPicker && <LanguageModal active={outputLang} onSelect={setOutputLang} onClose={() => setShowOutputPicker(false)} />}
 
       {mode !== TranslationMode.CONVERSATION && (
-        <header className="bg-primary p-6 pt-10 text-center rounded-b-[3rem] shadow-2xl transition-all relative overflow-hidden flex-shrink-0">
+        <header className="bg-primary p-4 pt-10 sm:p-6 sm:pt-14 text-center rounded-b-[2.5rem] sm:rounded-b-[3rem] shadow-2xl transition-all relative overflow-hidden flex-shrink-0">
           <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]"></div>
           <div className="relative z-10">
-            <div className="flex justify-center mb-6">
-              <img src="/hilton-logo.png" alt="Hilton Logo" className="h-20 w-auto" />
+            <div className="flex justify-center mb-4 sm:mb-6">
+              <img src="/hilton-logo.png" alt="Hilton Logo" className="h-14 sm:h-20 w-auto transition-all" />
             </div>
-            <h1 className="text-white font-display text-3xl sm:text-5xl font-bold tracking-widest uppercase opacity-100 mt-4">Hilton AI Translator</h1>
+            {/* Body text-sm (14px) -> Headline 3x = 42px. Desktop text-base (16px) -> Headline 3x = 48px (text-5xl) */}
+            <h1 className="text-white font-display text-[42px] leading-tight sm:text-5xl font-bold tracking-widest uppercase opacity-100 mt-2 sm:mt-4 break-words">Hilton AI Translator</h1>
           </div>
         </header>
       )}
 
-      <main className={`flex-grow flex flex-col transition-all ${mode === TranslationMode.CONVERSATION ? 'p-0' : 'px-4 -mt-6 z-10'}`}>
+      <main className={`flex-grow flex flex-col transition-all overflow-y-auto overflow-x-hidden ${mode === TranslationMode.CONVERSATION ? 'p-0' : 'px-4 -mt-4 sm:-mt-6 z-10 pb-24'}`}>
 
         {mode !== TranslationMode.CONVERSATION && (
-          <div className="bg-white dark:bg-slate-900 rounded-2xl p-1 shadow-xl border border-slate-100 dark:border-slate-800 mb-6 flex max-w-[240px] mx-auto w-full">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-1 shadow-xl border border-slate-100 dark:border-slate-800 mb-4 sm:mb-6 flex max-w-[240px] mx-auto w-full sticky top-2 z-20">
             <button onClick={() => setMode(TranslationMode.SOLO)} className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${mode === TranslationMode.SOLO ? 'bg-primary text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}>Solo</button>
             <button onClick={() => setMode(TranslationMode.CONVERSATION)} className="flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-slate-400 hover:text-slate-600">Bridge</button>
           </div>
@@ -367,9 +368,9 @@ const App: React.FC = () => {
       </main>
 
       {mode !== TranslationMode.CONVERSATION && (
-        <nav className="fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl border-t border-slate-100 dark:border-slate-800 px-8 pt-4 pb-8 flex justify-between items-center z-40 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)]">
+        <nav className="fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl border-t border-slate-100 dark:border-slate-800 px-6 pt-4 pb-8 sm:pb-10 flex justify-around items-center z-40 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)]">
           {[{ icon: 'g_translate', active: true }, { icon: 'history', active: false }, { icon: 'tune', active: false }].map((item, idx) => (
-            <button key={idx} className={`p-2 transition-all duration-300 ${item.active ? 'text-accent scale-110' : 'text-slate-300 hover:text-slate-400'}`}>
+            <button key={idx} className={`p-4 transition-all duration-300 ${item.active ? 'text-accent scale-110' : 'text-slate-300 hover:text-slate-400'}`}>
               <span className="material-icons-outlined text-3xl">{item.icon}</span>
             </button>
           ))}
