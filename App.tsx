@@ -381,7 +381,6 @@ const App: React.FC = () => {
         {mode === TranslationMode.CONVERSATION && (
           <div className="flex flex-col h-screen overflow-hidden animate-in fade-in duration-700">
             <div className="flex-1 rotate-180 bg-white dark:bg-slate-900 p-10 flex flex-col items-center justify-center text-center border-b border-slate-100 dark:border-slate-800 relative group">
-              <span className="absolute top-8 left-1/2 -translate-x-1/2 text-[10px] font-black uppercase tracking-[0.4em] text-accent/50 group-hover:text-accent transition-colors">{outputLang.name}</span>
               <div className="flex-grow flex items-center justify-center px-6 overflow-y-auto w-full relative">
                 <div className="text-4xl font-black text-primary dark:text-white leading-snug" dangerouslySetInnerHTML={{ __html: translation || (activeSpeaker === 'guest' ? "Listening..." : "Waiting...") }} />
 
@@ -410,20 +409,21 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            <div className="h-0.5 bg-accent/20 relative z-30 flex items-center justify-center">
-              <button onClick={() => setMode(TranslationMode.SOLO)} className="bg-accent text-white px-6 py-3 rounded-full text-[11px] font-black uppercase tracking-[0.3em] shadow-xl hover:bg-[#8B7143] transition-all">
+            <div className="h-0.5 bg-accent/20 relative z-30 flex items-center justify-center whitespace-nowrap">
+              <span className="absolute left-4 rotate-180 text-[10px] font-black uppercase tracking-[0.2em] text-accent/50">{outputLang.name}</span>
+              <button onClick={() => setMode(TranslationMode.SOLO)} className="bg-accent text-white px-6 py-3 rounded-full text-[11px] font-black uppercase tracking-[0.3em] shadow-xl hover:bg-[#8B7143] transition-all mx-4">
                 Exit Bridge
               </button>
+              <span className="absolute right-4 text-[10px] font-black uppercase tracking-[0.2em] text-accent/50">{inputLang.name}</span>
             </div>
 
             <div className="flex-1 bg-slate-50 dark:bg-black p-10 flex flex-col items-center justify-center text-center relative group">
-              <span className="absolute bottom-8 left-1/2 -translate-x-1/2 text-[10px] font-black uppercase tracking-[0.4em] text-accent/50 group-hover:text-accent transition-colors">{inputLang.name}</span>
               <div className="flex-grow w-full flex items-center justify-center px-6 mb-8 mt-4 overflow-y-auto">
                 <textarea value={transcript} onChange={(e) => {
                   const val = e.target.value;
                   setTranscript(val);
                   transcriptRef.current = val;
-                }} placeholder={activeSpeaker === 'host' ? "Listening..." : "Tap Mic"} className="w-full bg-transparent border-none text-4xl font-black text-primary dark:text-white leading-snug text-center focus:ring-0 resize-none p-0 h-full" />
+                }} placeholder={activeSpeaker === 'host' ? "Listening..." : (activeSpeaker === 'guest' ? "Waiting..." : "Tap Mic")} className="w-full bg-transparent border-none text-4xl font-black text-primary dark:text-white leading-snug text-center focus:ring-0 resize-none p-0 h-full" />
               </div>
               <button onClick={activeSpeaker ? stopRecording : () => startRecording('host')} disabled={isProcessing || (activeSpeaker === 'guest')} className={`w-24 h-24 rounded-full flex items-center justify-center shadow-2xl transition-all active:scale-90 ${activeSpeaker === 'host' ? 'bg-red-500 scale-110' : 'bg-primary hover:scale-105'} ${isProcessing || activeSpeaker === 'guest' ? 'opacity-50 grayscale cursor-not-allowed' : ''}`}>
                 <span className="material-icons-outlined text-4xl text-white">{activeSpeaker === 'host' ? 'stop' : 'mic'}</span>
