@@ -263,7 +263,7 @@ const App: React.FC = () => {
         </header>
       )}
 
-      <main className={`flex-grow flex flex-col transition-all overflow-y-auto overflow-x-hidden ${mode === TranslationMode.CONVERSATION ? 'p-0' : 'px-4 -mt-4 sm:-mt-6 z-10 pb-24'}`}>
+      <main className={`flex-grow flex flex-col transition-all overflow-y-auto overflow-x-hidden ${mode === TranslationMode.CONVERSATION ? 'p-0' : 'px-4 -mt-4 sm:-mt-6 z-10'}`}>
 
         {mode !== TranslationMode.CONVERSATION && (
           <div className="bg-white dark:bg-slate-900 rounded-2xl p-1 shadow-xl border border-slate-100 dark:border-slate-800 mb-4 sm:mb-6 flex max-w-[240px] mx-auto w-full sticky top-2 z-20">
@@ -432,16 +432,6 @@ const App: React.FC = () => {
           </div>
         )}
       </main>
-
-      {mode !== TranslationMode.CONVERSATION && (
-        <nav className="fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl border-t border-slate-100 dark:border-slate-800 px-6 pt-4 pb-8 sm:pb-10 flex justify-around items-center z-40 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)]">
-          {[{ icon: 'g_translate', active: true }, { icon: 'history', active: false }, { icon: 'tune', active: false }].map((item, idx) => (
-            <button key={idx} className={`p-4 transition-all duration-300 ${item.active ? 'text-accent scale-110' : 'text-slate-300 hover:text-slate-400'}`}>
-              <span className="material-icons-outlined text-3xl">{item.icon}</span>
-            </button>
-          ))}
-        </nav>
-      )}
     </div>
   );
 };
