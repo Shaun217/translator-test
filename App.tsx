@@ -153,11 +153,53 @@ const App: React.FC = () => {
     }
   };
 
+  // Extracted translation logic to support both Voice stop and specific Text submit
+  const handleTranslation = async (text: string, speaker: 'host' | 'guest') => {
+    if (!text) {
+      if (speaker === 'host') setTranslation("No voice input was detected.");
+      if (speaker === 'guest') setTranscript("No voice input was detected.");
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      if (speaker === 'host') {
+        const result = await translateText(text, inputLang.name, outputLang.name);
+        setTranslation(result);
+      } else if (speaker === 'guest') {
+        // Guest spoke in OutputLang. We need to show this on their side.
+        // We need to translate that to InputLang and put it in 'transcript' for the Host to see.
+        const result = await translateText(text, outputLang.name, inputLang.name);
+        setTranslation(text); // Ensure Top shows original Guest text
+        setTranscript(result); // Bottom shows Translated English
+      }
+    } catch (e) {
+      setErrorMessage("Processing failed. Please try again.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleTextSubmit = () => {
+    if (!transcript.trim()) return;
+    // When typing manually, we assume it's the Host typing in InputLang (Solo Mode) or Host side Bridge
+    // If in Bridge Mode and Guest is active, they don't usually type? 
+    // Let's assume manual input is primarily for Host in Solo/Bridge.
+    handleTranslation(transcript.trim(), 'host');
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleTextSubmit();
+    }
+  };
+
   const stopRecording = async () => {
     // Capture the current speaker before resetting
     const currentSpeaker = activeSpeaker;
     setActiveSpeaker(null);
-    setIsProcessing(true);
+    setIsProcessing(true); // interim loading while stopping
 
     if (processorRef.current) processorRef.current.disconnect();
     if (audioContextRef.current) audioContextRef.current.close();
@@ -167,53 +209,11 @@ const App: React.FC = () => {
     }
 
     setTimeout(async () => {
-      try {
-        const textToTranslate = transcriptRef.current.trim();
-        if (textToTranslate) {
-          // Dual Logic:
-          // If HOST spoke: textToTranslate is in InputLang. Translate to OutputLang.
-          // If GUEST spoke: textToTranslate is in OutputLang. Translate to InputLang.
-
-          if (currentSpeaker === 'host') {
-            const result = await translateText(textToTranslate, inputLang.name, outputLang.name);
-            setTranslation(result);
-            // Optionally auto-play result for Guest to hear? 
-            // Requirement says "function similar", usually implies playing result.
-            // But existing code had auto-play removed per request. 
-          } else if (currentSpeaker === 'guest') {
-            // Guest spoke in OutputLang. We need to show this on their side (already done via visual feedback in translation state?)
-            // Wait, in startRecording 'onmessage', Guest speech went to 'setTranslation'.
-            // So 'translation' currently holds the Guest's transcript.
-            // We need to translate that to InputLang and put it in 'transcript' (Bottom Card) for the Host to see.
-
-            // Swap variable logic for the call:
-            const result = await translateText(textToTranslate, outputLang.name, inputLang.name);
-
-            // Update UI:
-            // Guest's speech (Transcript) -> Visualization kept active? 
-            // Actually, usually we show: 
-            // Top: Original Guest Text
-            // Bottom: Translated Host Text
-
-            // Let's force proper state assignment:
-            // Top (Guest Area): Should show what they said. (currently in 'translation' state)
-            // Bottom (Host Area): Should show translation. (currently 'transcript' state)
-
-            setTranslation(textToTranslate); // Ensure Top shows original Guest text
-            setTranscript(result); // Bottom shows Translated English
-
-            // Auto-play for Host?
-            // Users usually want to hear the translation in their language.
-            // handlePlayAudio(result, inputLang.name); 
-          }
-
-        } else {
-          if (currentSpeaker === 'host') setTranslation("No voice input was detected.");
-          if (currentSpeaker === 'guest') setTranscript("No voice input was detected.");
-        }
-      } catch (e) {
-        setErrorMessage("Processing failed. Please try again.");
-      } finally {
+      // Use the ref for latest text
+      const textToTranslate = transcriptRef.current.trim();
+      if (currentSpeaker) {
+        await handleTranslation(textToTranslate, currentSpeaker);
+      } else {
         setIsProcessing(false);
       }
     }, 100);
@@ -346,6 +346,7 @@ const App: React.FC = () => {
                     setTranscript(val);
                     transcriptRef.current = val;
                   }}
+                  onKeyDown={handleKeyDown}
                   placeholder={activeSpeaker ? `Listening...` : `Speak or type...`}
                   className="w-full h-32 sm:h-40 bg-slate-50/50 dark:bg-slate-800/30 rounded-3xl p-5 border-2 border-dashed border-slate-100 dark:border-slate-800 transition-all text-slate-700 dark:text-slate-200 text-lg sm:text-xl font-medium leading-relaxed resize-none focus:border-accent focus:ring-0 focus:bg-white dark:focus:bg-slate-800 shadow-inner"
                 />
@@ -359,6 +360,17 @@ const App: React.FC = () => {
                   <div className="absolute top-3 right-4 flex items-center space-x-1.5 bg-red-500/10 text-red-500 px-2.5 py-1 rounded-full border border-red-500/20 shadow-sm backdrop-blur-sm">
                     <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-ping"></div>
                     <span className="text-[9px] font-black uppercase tracking-widest">Live</span>
+                  </div>
+                )}
+                {/* Send Button for Manual Text Input */}
+                {transcript && !activeSpeaker && (
+                  <div className="absolute bottom-3 right-4">
+                    <button
+                      onClick={handleTextSubmit}
+                      className="bg-primary hover:bg-primary-dark text-white rounded-full p-2 shadow-lg transition-transform active:scale-95"
+                    >
+                      <span className="material-icons-outlined text-xl">arrow_upward</span>
+                    </button>
                   </div>
                 )}
               </div>
@@ -409,21 +421,30 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            <div className="h-0.5 bg-accent/20 relative z-30 flex items-center justify-center whitespace-nowrap">
-              <span className="absolute left-4 rotate-180 text-[10px] font-black uppercase tracking-[0.2em] text-accent/50">{outputLang.name}</span>
-              <button onClick={() => setMode(TranslationMode.SOLO)} className="bg-accent text-white px-6 py-3 rounded-full text-[11px] font-black uppercase tracking-[0.3em] shadow-xl hover:bg-[#8B7143] transition-all mx-4">
-                Exit Bridge
-              </button>
-              <span className="absolute right-4 text-[10px] font-black uppercase tracking-[0.2em] text-accent/50">{inputLang.name}</span>
+            <div className="relative z-30 flex items-center justify-center py-2">
+              <div className="absolute inset-x-0 h-0.5 bg-accent/20 top-1/2 -translate-y-1/2"></div>
+              <div className="relative z-10 flex flex-col items-center gap-2">
+                <span className="rotate-180 text-[10px] font-black uppercase tracking-[0.2em] text-accent/50">{outputLang.name}</span>
+                <button onClick={() => setMode(TranslationMode.SOLO)} className="bg-accent text-white px-6 py-3 rounded-full text-[11px] font-black uppercase tracking-[0.3em] shadow-xl hover:bg-[#8B7143] transition-all">
+                  Exit Bridge
+                </button>
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-accent/50">{inputLang.name}</span>
+              </div>
             </div>
 
             <div className="flex-1 bg-slate-50 dark:bg-black p-10 flex flex-col items-center justify-center text-center relative group">
               <div className="flex-grow w-full flex items-center justify-center px-6 mb-8 mt-4 overflow-y-auto">
-                <textarea value={transcript} onChange={(e) => {
-                  const val = e.target.value;
-                  setTranscript(val);
-                  transcriptRef.current = val;
-                }} placeholder={activeSpeaker === 'host' ? "Listening..." : (activeSpeaker === 'guest' ? "Waiting..." : "Tap Mic")} className="w-full bg-transparent border-none text-4xl font-black text-primary dark:text-white leading-snug text-center focus:ring-0 resize-none p-0 h-full" />
+                <textarea
+                  value={transcript}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setTranscript(val);
+                    transcriptRef.current = val;
+                  }}
+                  onKeyDown={handleKeyDown}
+                  placeholder={activeSpeaker === 'host' ? "Listening..." : (activeSpeaker === 'guest' ? "Waiting..." : "Tap Mic")}
+                  className="w-full bg-transparent border-none text-4xl font-black text-primary dark:text-white leading-snug text-center focus:ring-0 resize-none p-0 h-full"
+                />
               </div>
               <button onClick={activeSpeaker ? stopRecording : () => startRecording('host')} disabled={isProcessing || (activeSpeaker === 'guest')} className={`w-24 h-24 rounded-full flex items-center justify-center shadow-2xl transition-all active:scale-90 ${activeSpeaker === 'host' ? 'bg-red-500 scale-110' : 'bg-primary hover:scale-105'} ${isProcessing || activeSpeaker === 'guest' ? 'opacity-50 grayscale cursor-not-allowed' : ''}`}>
                 <span className="material-icons-outlined text-4xl text-white">{activeSpeaker === 'host' ? 'stop' : 'mic'}</span>
